@@ -64,21 +64,9 @@ export class GammaApiClient {
 
   /**
    * 获取活跃市场列表（多线程并发）
-   * @param hours - 获取未来多少小时的市场数据
+   * @param hours - 获取未来多少小时的市场数据（已废弃，保留参数兼容性）
    */
   async fetchMarkets(hours: number = 480): Promise<ParsedMarket[]> {
-    const current_time = new Date().toISOString();
-    const expiry_time = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
-
-    const params = new URLSearchParams({
-      active: 'true',
-      closed: 'false',
-      archived: 'false',
-      'endDate__gt': current_time,
-      'endDate__lt': expiry_time,
-      limit: '500',
-    });
-
     // 分页获取
     const limit = 500;
     const max_total = 15000;
@@ -89,10 +77,10 @@ export class GammaApiClient {
 
     console.log(`[GammaAPI] 启动 ${Math.min(this.config.maxWorkers, offsets.length)} 个线程并发获取 ${offsets.length} 页数据...`);
 
-    // 并发获取所有页面
+    // 并发获取所有页面（使用正确的参数格式）
     const all_markets: GammaMarket[] = [];
     const fetchPromises = offsets.map((offset, index) =>
-      this.fetchPage(`${this.config.baseUrl}/markets?${params.toString()}&offset=${offset}`, index)
+      this.fetchPage(`${this.config.baseUrl}/markets?status=active&limit=500&offset=${offset}`, index)
     );
 
     const results = await Promise.allSettled(fetchPromises);
