@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-01-26T13:22:59.879Z",
+  "strategy": "Convergence V5.3",
+  "totalDatasets": 4,
+  "successCount": 4,
+  "failCount": 0,
+  "avgReturn": 0,
+  "avgWinRate": 0,
+  "avgTrades": 0,
+  "profitabilityRate": 0,
+  "results": [
+    {
+      "fileName": "backtest_data_1769009635709.json",
+      "status": "success",
+      "totalReturn": 0,
+      "trades": 0,
+      "winRate": 0,
+      "avgProfitLoss": 0
+    },
+    {
+      "fileName": "backtest_data_multi.json",
+      "status": "success",
+      "totalReturn": 0,
+      "trades": 0,
+      "winRate": 0,
+      "avgProfitLoss": 0
+    },
+    {
+      "fileName": "backtest_data_1769009755199.json",
+      "status": "success",
+      "totalReturn": 0,
+      "trades": 0,
+      "winRate": 0,
+      "avgProfitLoss": 0
+    },
+    {
+      "fileName": "backtest_data_1769009786594.json",
+      "status": "success",
+      "totalReturn": 0,
+      "trades": 0,
+      "winRate": 0,
+      "avgProfitLoss": 0
+    }
+  ]
+}

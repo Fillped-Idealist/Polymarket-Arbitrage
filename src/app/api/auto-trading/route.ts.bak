@@ -1,0 +1,132 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getTradingEngine } from '@/lib/trading-engine/engine';
+import { StrategyType } from '@/lib/trading-engine/types';
+
+// 单例引擎实例
+const engine = getTradingEngine();
+
+/**
+ * GET /api/auto-trading - 获取引擎状态和统计
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const stats = engine.getStats();
+    const positions = engine.positions;
+
+    return NextResponse.json({
+      success: true,
+      isRunning: engine['isRunning'],
+      config: engine.config,
+      stats,
+      positions: positions.map(p => ({
+        id: p.id,
+        marketId: p.marketId,
+        strategy: p.strategy,
+        status: p.status,
+        entryPrice: p.entryPrice,
+        currentPrice: p.currentPrice,
+        pnl: p.pnl,
+        pnlPercent: p.pnlPercent,
+        entryTime: p.entryTime,
+        exitTime: p.exitTime,
+      })),
+    });
+  } catch (error) {
+    console.error('Error in GET /api/auto-trading:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to get engine status',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/auto-trading - 控制引擎（启动/停止/更新配置）
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { action, config, strategies } = body;
+
+    switch (action) {
+      case 'start':
+        if (!engine['isRunning']) {
+          await engine.start();
+          return NextResponse.json({
+            success: true,
+            message: '自动交易引擎已启动',
+          });
+        } else {
+          return NextResponse.json({
+            success: false,
+            error: '引擎已在运行中',
+          },
+          { status: 400 }
+        );
+      }
+
+      case 'stop':
+        if (engine['isRunning']) {
+          await engine.stop();
+          return NextResponse.json({
+            success: true,
+            message: '自动交易引擎已停止',
+          });
+        } else {
+          return NextResponse.json({
+            success: false,
+            error: '引擎未运行',
+          },
+          { status: 400 }
+        );
+      }
+
+      case 'update_config':
+        if (config || strategies) {
+          const newConfig: any = {};
+
+          if (config) {
+            Object.assign(newConfig, config);
+          }
+
+          if (strategies) {
+            newConfig.strategies = { ...engine.config.strategies, ...strategies };
+          }
+
+          await engine.updateConfig(newConfig);
+          return NextResponse.json({
+            success: true,
+            message: '配置已更新',
+            config: engine.config,
+          });
+        } else {
+          return NextResponse.json({
+            success: false,
+            error: '缺少配置参数',
+          },
+          { status: 400 }
+        );
+      }
+
+      default:
+        return NextResponse.json({
+          success: false,
+          error: '无效的操作',
+        },
+        { status: 400 }
+      );
+    }
+  } catch (error) {
+    console.error('Error in POST /api/auto-trading:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to control engine',
+      },
+      { status: 500 }
+    );
+  }
+}

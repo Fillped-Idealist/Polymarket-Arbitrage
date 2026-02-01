@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-01-26T13:18:58.587Z",
+  "strategy": "Reversal V8.5",
+  "totalDatasets": 9,
+  "successCount": 8,
+  "failCount": 1,
+  "avgReturn": -5.86,
+  "avgWinRate": 25.05,
+  "avgTrades": 9.9,
+  "profitabilityRate": 25,
+  "results": [
+    {
+      "fileName": "backtest_data_1769008904731.json",
+      "status": "success",
+      "totalReturn": -8.32,
+      "trades": 7,
+      "winRate": 28.6,
+      "bigProfitCount": 0,
+      "avgProfitLoss": -3.705361064056717
+    },
+    {
+      "fileName": "backtest_data_1769009082241.json",
+      "status": "success",
+      "totalReturn": -47.9,
+      "trades": 14,
+      "winRate": 0,
+      "bigProfitCount": 0,
+      "avgProfitLoss": -13.671250992897688
+    },
+    {
+      "fileName": "backtest_data_1769009621518.json",
+      "status": "success",
+      "totalReturn": -1.88,
+      "trades": 3,
+      "winRate": 0,
+      "bigProfitCount": 0,
+      "avgProfitLoss": -1.9039331899500362
+    },
+    {
+      "fileName": "backtest_data_1769009635709.json",
+      "status": "success",
+      "totalReturn": 25.12,
+      "trades": 5,
+      "winRate": 40,
+      "bigProfitCount": 2,
+      "avgProfitLoss": 25.470146951190962
+    },
+    {
+      "fileName": "backtest_data_1769009755199.json",
+      "status": "success",
+      "totalReturn": -30.98,
+      "trades": 10,
+      "winRate": 20,
+      "bigProfitCount": 0,
+      "avgProfitLoss": -9.449783438060413
+    },
+    {
+      "fileName": "backtest_data_1769009786594.json",
+      "status": "success",
+      "totalReturn": -35.59,
+      "trades": 34,
+      "winRate": 11.8,
+      "bigProfitCount": 0,
+      "avgProfitLoss": -3.992711131961018
+    },
+    {
+      "fileName": "backtest_data_2zip.json",
+      "status": "failed"
+    },
+    {
+      "fileName": "backtest_data_multi.json",
+      "status": "success",
+      "totalReturn": 52.64,
+      "trades": 3,
+      "winRate": 100,
+      "bigProfitCount": 0,
+      "avgProfitLoss": 50.48090129621206
+    },
+    {
+      "fileName": "backtest_data_small.json",
+      "status": "success",
+      "totalReturn": 0,
+      "trades": 3,
+      "winRate": 0,
+      "bigProfitCount": 0,
+      "avgProfitLoss": 0
+    }
+  ]
+}
