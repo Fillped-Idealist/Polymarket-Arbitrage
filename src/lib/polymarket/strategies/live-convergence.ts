@@ -12,7 +12,6 @@
  */
 
 import {
-  BacktestStrategy,
   BacktestStrategyType,
   BacktestMarketSnapshot,
   BacktestConfig,
@@ -20,7 +19,33 @@ import {
 } from '../../backtest/types';
 import { clobApiClient } from '../clob-api';
 
-export class LiveConvergenceStrategy implements BacktestStrategy {
+export interface LiveStrategyConfig {
+  // 基础配置
+  initialCapital: number;
+  maxPositions: number;
+  maxPositionSize: number;
+
+  // 策略配置
+  strategies: {
+    reversal: {
+      enabled: boolean;
+      maxPositions: number;
+      maxPositionSize: number;
+    };
+    convergence: {
+      enabled: boolean;
+      maxPositions: number;
+      maxPositionSize: number;
+    };
+  };
+
+  // 实盘特有配置
+  minLiquidity?: number;
+  maxSlippage?: number;
+  minOrderSize?: number;
+}
+
+export class LiveConvergenceStrategy {
   type = BacktestStrategyType.CONVERGENCE;
 
   // 最高价格记录（用于移动止盈）
@@ -30,20 +55,23 @@ export class LiveConvergenceStrategy implements BacktestStrategy {
   private tradeCooldowns = new Map<string, Date>();
   private readonly COOLDOWN_MINUTES = 15; // 15分钟冷却时间
 
-  constructor(private config?: BacktestConfig) {}
+  constructor(private config?: LiveStrategyConfig) {}
 
   /**
    * 判断是否应该开仓
    * @param snapshot 市场快照
-   * @param config 配置
+   * @param config 配置（支持 LiveStrategyConfig 或 BacktestConfig）
    * @returns 是否应该开仓
    */
   async shouldOpen(
     snapshot: BacktestMarketSnapshot,
-    config: BacktestConfig
+    config: LiveStrategyConfig | BacktestConfig
   ): Promise<boolean> {
-    const strategyConfig = config.strategies.convergence;
-    if (!strategyConfig.enabled) return false;
+    // 兼容两种配置类型
+    const strategies = 'strategies' in config ? config.strategies : config.strategies;
+    const strategyConfig = strategies.convergence;
+
+    if (!strategyConfig || !strategyConfig.enabled) return false;
 
     // 1. 检查交易冷却时间
     const lastTradeTime = this.tradeCooldowns.get(snapshot.marketId);
@@ -92,14 +120,14 @@ export class LiveConvergenceStrategy implements BacktestStrategy {
    * @param trade 持仓
    * @param currentPrice 当前价格
    * @param currentTime 当前时间
-   * @param config 配置
+   * @param config 配置（支持 LiveStrategyConfig 或 BacktestConfig）
    * @returns 是否应该平仓
    */
   shouldClose(
     trade: BacktestTrade,
     currentPrice: number,
     currentTime: Date,
-    config: BacktestConfig
+    config: LiveStrategyConfig | BacktestConfig
   ): boolean {
     const hoursHeld = (currentTime.getTime() - trade.entryTime.getTime()) / (1000 * 60 * 60);
     const profitPercent = (currentPrice - trade.entryPrice) / trade.entryPrice;
