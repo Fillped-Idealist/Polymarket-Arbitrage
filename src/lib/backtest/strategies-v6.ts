@@ -597,7 +597,7 @@ export class ReversalStrategyV6 implements BacktestStrategy {
    */
   private passesMarketDepthCheck(snapshot: BacktestMarketSnapshot): boolean {
     // 24小时成交量：>= $10,000（从 $5,000 提高）
-    if (!snapshot.volume24h || snapshot.volume24h < 10000) {
+    if (!snapshot.volume24hr || snapshot.volume24hr < 10000) {
       return false;
     }
 
@@ -607,8 +607,8 @@ export class ReversalStrategyV6 implements BacktestStrategy {
     }
 
     // 买卖价差检查（假设：流动性/成交量比率越高，买卖价差越小）
-    if (snapshot.liquidity && snapshot.volume24h) {
-      const ratio = snapshot.liquidity / snapshot.volume24h;
+    if (snapshot.liquidity && snapshot.volume24hr) {
+      const ratio = snapshot.liquidity / snapshot.volume24hr;
       if (ratio < 0.015) {  // 流动性/成交量比率 >= 1.5%
         return false;
       }
@@ -624,12 +624,12 @@ export class ReversalStrategyV6 implements BacktestStrategy {
     }
 
     // V8.7: 24小时成交量检查（提高）
-    if (!snapshot.volume24h || snapshot.volume24h < 10000) {  // 从 5000 提高到 10000
+    if (!snapshot.volume24hr || snapshot.volume24hr < 10000) {  // 从 5000 提高到 10000
       return false;
     }
 
-    if (snapshot.liquidity && snapshot.volume24h) {
-      const ratio = snapshot.liquidity / snapshot.volume24h;
+    if (snapshot.liquidity && snapshot.volume24hr) {
+      const ratio = snapshot.liquidity / snapshot.volume24hr;
       if (ratio < 0.015) {  // 从 0.01 提高到 0.015
         return false;
       }

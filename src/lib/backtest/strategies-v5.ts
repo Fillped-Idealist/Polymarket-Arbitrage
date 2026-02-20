@@ -357,12 +357,12 @@ export class ReversalStrategyV5 implements BacktestStrategy {
       return false;
     }
 
-    if (!snapshot.volume24h || snapshot.volume24h < 5000) {
+    if (!snapshot.volume24hr || snapshot.volume24hr < 5000) {
       return false;
     }
 
-    if (snapshot.liquidity && snapshot.volume24h) {
-      const ratio = snapshot.liquidity / snapshot.volume24h;
+    if (snapshot.liquidity && snapshot.volume24hr) {
+      const ratio = snapshot.liquidity / snapshot.volume24hr;
       if (ratio < 0.01) {
         return false;
       }

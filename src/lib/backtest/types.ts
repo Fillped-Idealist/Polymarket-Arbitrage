@@ -22,7 +22,7 @@ export interface BacktestMarketSnapshot {
   question: string;
   outcomePrices: number[];          // 实时价格（从Clob API获取）
   liquidity: number;                // 盘口流动性
-  volume24h: number;
+  volume24hr: number;
   endDate: Date;
   isBinary: boolean;                // 是否二元市场
   tags?: string[];                  // 标签（如crypto, politics）

@@ -24,8 +24,6 @@ export async function GET(request: NextRequest) {
         isRunning: tradingEngineV2 !== null,
         isInitializing: isInitializingV2,
         positions: {
-          openCount: positionManager.getOpenPositions().length,
-          closedCount: positionManager.getClosedPositions().length,
           openPositions: positionManager.getOpenPositions(),
           closedPositions: positionManager.getClosedPositions(),
           ...positionManager.getStatistics(),
@@ -91,7 +89,7 @@ export async function POST(request: NextRequest) {
     const {
       testMode = 'all-reversal',
       initialCapital = 10000,
-      version = 'v1',
+      version = 'v2',
     } = body;
 
     if (version === 'v2') {
@@ -116,7 +114,7 @@ export async function POST(request: NextRequest) {
 
       try {
         // 清空旧数据
-        positionManager.clear();
+        positionManager.clear(Number(initialCapital));
         candidateManager.clear();
 
         // 创建配置
@@ -137,8 +135,6 @@ export async function POST(request: NextRequest) {
           isRunning: true,
           isInitializing: false,
           positions: {
-            openCount: positionManager.getOpenPositions().length,
-            closedCount: positionManager.getClosedPositions().length,
             openPositions: positionManager.getOpenPositions(),
             closedPositions: positionManager.getClosedPositions(),
             ...positionManager.getStatistics(),
@@ -156,29 +152,6 @@ export async function POST(request: NextRequest) {
       } finally {
         isInitializingV2 = false;
       }
-    } else {
-      // V1 版本（旧版本，保留兼容性）
-      const { LiveTradingEngine } = await import('@/lib/live-trading/engine');
-
-      if (tradingEngineV1) {
-        return NextResponse.json({
-          success: false,
-          data: null,
-          message: '实盘交易已经在运行中',
-        }, { status: 400 });
-      }
-
-      const config = createTestModeConfig(testMode, initialCapital);
-      tradingEngineV1 = new LiveTradingEngine(config, () => {});
-      await tradingEngineV1.start();
-
-      const statistics = tradingEngineV1.getStatistics();
-
-      return NextResponse.json({
-        success: true,
-        data: statistics,
-        message: '实盘交易已启动',
-      });
     }
   } catch (error) {
     console.error('[API] 启动实盘交易失败:', error);
@@ -217,8 +190,6 @@ export async function DELETE(request: NextRequest) {
         isRunning: false,
         isInitializing: false,
         positions: {
-          openCount: positionManager.getOpenPositions().length,
-          closedCount: positionManager.getClosedPositions().length,
           openPositions: positionManager.getOpenPositions(),
           closedPositions: positionManager.getClosedPositions(),
           ...positionManager.getStatistics(),

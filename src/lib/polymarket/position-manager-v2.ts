@@ -4,6 +4,7 @@
  */
 
 import { ParsedMarket } from './gamma-api-v2';
+import { capitalHistory } from './capital-history';
 
 /**
  * 持仓数据
@@ -12,6 +13,8 @@ export interface Position {
   id: string;
   market_id: string;
   market_question: string;
+  // 兼容性别名
+  question?: string;
   outcome_id: string;
   outcome_name: string;
   outcome_index: number;
@@ -21,6 +24,8 @@ export interface Position {
   position_size: number;
   entry_value: number;
   end_date: string;
+  // 兼容性别名
+  endDate?: string;
   exit_time: Date | null;
   exit_price: number | null;
   exit_value: number | null;
@@ -43,6 +48,10 @@ export interface Position {
   trailing_tp_active: boolean;
   trailing_tp_hit: boolean;
   tp_stage: number;
+
+  // 兼容性扩展
+  volume?: number;
+  liquidity?: number;
 }
 
 /**
@@ -149,6 +158,9 @@ export class PositionManager {
     this.positions.delete(position.id);
     this.traded_market_ids.delete(position.market_id);
     this.closed_positions.push(position);
+
+    // 记录交易
+    capitalHistory.recordTrade(pnl);
 
     // 更新权益
     this.updateEquity();
@@ -257,6 +269,18 @@ export class PositionManager {
     // 权益 = 初始资金 + 已实现盈亏
     const realized_pnl = this.closed_positions.reduce((sum, p) => sum + p.pnl, 0);
     this.equity = this.config.initial_capital + realized_pnl;
+
+    // 记录资金历史
+    const totalAssets = this.getTotalAssets();
+    const floating_pnl = Array.from(this.positions.values())
+      .reduce((sum, p) => sum + p.current_pnl, 0);
+    capitalHistory.recordPoint(
+      this.equity,
+      totalAssets,
+      realized_pnl,
+      floating_pnl,
+      this.positions.size
+    );
   }
 
   /**
@@ -359,6 +383,7 @@ export class PositionManager {
       winRate: closed_positions.length > 0 ? winCount / closed_positions.length : 0,
     };
   }
+  
 
   /**
    * 清空持仓
@@ -372,12 +397,27 @@ export class PositionManager {
     if (initial_capital !== undefined) {
       this.config.initial_capital = initial_capital;
       this.equity = initial_capital;
+
+      // 清空资金历史
+      capitalHistory.clear();
+      // 记录初始资金点
+      capitalHistory.recordPoint(initial_capital, initial_capital, 0, 0, 0);
     } else {
       this.equity = this.config.initial_capital;
+      
+      // 清空资金历史
+      capitalHistory.clear();
+      // 记录初始资金点
+      capitalHistory.recordPoint(this.config.initial_capital, this.config.initial_capital, 0, 0, 0);
     }
 
     console.log(`[PositionManager] 持仓已清空, 初始资金: ${this.config.initial_capital}`);
   }
+
+  getInitialCapital(): number {
+    return this.config.initial_capital || 10000;
+  }
+
 }
 
 // 导出单例

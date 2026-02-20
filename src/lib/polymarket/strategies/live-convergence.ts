@@ -93,22 +93,22 @@ export class LiveConvergenceStrategy {
     }
 
     // 3. 检查价格区间（90%-95%）
-    const hasValidPrice = snapshot.outcomePrices.some(price => {
-      return price >= 0.90 && price <= 0.95;
-    });
-
-    if (!hasValidPrice) {
+    // 修复：处理 snapshot.outcomePrices 可能不是数组的情况
+    const outcomeIndex = this.findOutcomeIndex(snapshot);
+    if (outcomeIndex === -1) {
       return false;
     }
 
     // 4. 检查市场深度
     if (!this.passesBasicMarketDepthCheck(snapshot)) {
+      console.log('市场深度不足');
       return false;
     }
 
     // 5. 检查流动性
-    const hasLiquidity = await this.checkLiquidity(snapshot, config.initialCapital);
+    const hasLiquidity = await this.checkLiquidity(snapshot, outcomeIndex, config.initialCapital);
     if (!hasLiquidity) {
+      console.log('市场流动性不足');
       return false;
     }
 
@@ -124,11 +124,12 @@ export class LiveConvergenceStrategy {
    * @returns 是否应该平仓
    */
   shouldClose(
-    trade: BacktestTrade,
+    rawtrade: any,
     currentPrice: number,
     currentTime: Date,
     config: LiveStrategyConfig | BacktestConfig
   ): boolean {
+    const trade = this.normalizeTrade(rawtrade);
     const hoursHeld = (currentTime.getTime() - trade.entryTime.getTime()) / (1000 * 60 * 60);
     const profitPercent = (currentPrice - trade.entryPrice) / trade.entryPrice;
 
@@ -174,7 +175,8 @@ export class LiveConvergenceStrategy {
   /**
    * 获取退出原因
    */
-  getExitReason(trade: BacktestTrade, currentPrice: number, currentTime: Date): string {
+  getExitReason(rawtrade: any, currentPrice: number, currentTime: Date): string {
+    const trade = this.normalizeTrade(rawtrade);
     const hoursHeld = (currentTime.getTime() - trade.entryTime.getTime()) / (1000 * 60 * 60);
     const profitPercent = (currentPrice - trade.entryPrice) / trade.entryPrice;
 
@@ -185,7 +187,7 @@ export class LiveConvergenceStrategy {
 
     // 2. 硬止损
     if (profitPercent < -0.05) {
-      return `硬止损：价格跌至${(currentPrice * 100).toFixed(2)}%（5%止损）`;
+      return `硬止损：价格跌至${(currentPrice * 100).toFixed(3)}%（5%止损）`;
     }
 
     // 3. 移动止盈
@@ -193,7 +195,7 @@ export class LiveConvergenceStrategy {
       const highestPrice = this.highestPrices.get(trade.marketId) || trade.entryPrice;
       const drawdownRatio = (highestPrice - currentPrice) / highestPrice;
       if (drawdownRatio > 0.10) {
-        return `移动止盈：从最高点${(highestPrice * 100).toFixed(2)}%回撤${(drawdownRatio * 100).toFixed(2)}%`;
+        return `移动止盈：从最高点${(highestPrice * 100).toFixed(3)}%回撤${(drawdownRatio * 100).toFixed(2)}%`;
       }
     }
 
@@ -202,13 +204,14 @@ export class LiveConvergenceStrategy {
       return '强制平仓：最大持仓时间24小时';
     }
 
-    // 5. 市场临近结束
+    // 5. 市场临近结束（强制平仓，防止归零）
     const hoursUntilEnd = (trade.endDate.getTime() - currentTime.getTime()) / (1000 * 60 * 60);
     if (hoursUntilEnd <= 2) {
       return '强制平仓：市场临近结束（2小时内）';
     }
 
-    return '';
+    // 如果没有匹配任何条件，返回默认原因（不应该发生，因为 shouldClose 和 getExitReason 逻辑一致）
+    return '止盈退出：达到目标收益或风险控制退出';
   }
 
   /**
@@ -216,40 +219,52 @@ export class LiveConvergenceStrategy {
    */
   private async checkLiquidity(
     snapshot: BacktestMarketSnapshot,
+    outcomeIndex: number,
     initialCapital: number
   ): Promise<boolean> {
     try {
-      // 找到要交易的结果索引
-      const outcomeIndex = this.findOutcomeIndex(snapshot);
+      // 1. 找到要交易的结果索引
       if (outcomeIndex === -1) {
         return false;
       }
 
-      const price = snapshot.outcomePrices[outcomeIndex];
+      // 修复：安全获取价格
+      const prices = Array.isArray(snapshot.outcomePrices)
+        ? snapshot.outcomePrices
+        : Object.values(snapshot.outcomePrices || {});
+      const price = parseFloat(prices[outcomeIndex]);
 
-      // 计算需要的 shares 数量（18% 仓位）
-      const positionValuePercent = 0.18;
+      // 2. 计算需要的 shares 数量（基于配置的仓位比例，默认18%）
+      const positionValuePercent = 'strategies' in (this.config || {})
+        ? (this.config as any).strategies.convergence.maxPositionSize
+        : 0.18;
+
       const positionValue = initialCapital * positionValuePercent;
       const shares = Math.floor(positionValue / price);
 
-      // 检查最小订单大小
+      // 3. 检查最小订单大小
       const minOrderSize = 10;
       if (shares < minOrderSize) {
         return false;
       }
 
-      // 【实盘特有】检查 CLOB 流动性
-      // 暂时跳过，需要 tokenID
-      // const hasEnoughLiquidity = await clobApiClient.hasEnoughLiquidity(
-      //   tokenID,
-      //   assetId,
-      //   'buy',
-      //   shares
-      // );
+      // 4. 【实盘特有】检查 CLOB 流动性
+      if (snapshot.clobTokenIds && snapshot.clobTokenIds[outcomeIndex]) {
+        const tokenId = snapshot.clobTokenIds[outcomeIndex];
+        const maxSlippage = (this.config as any)?.maxSlippage || 0.02;
 
-      // if (!hasEnoughLiquidity) {
-      //   return false;
-      // }
+        const hasEnough = await clobApiClient.hasEnoughLiquidity(
+          tokenId,
+          'buy',
+          shares,
+          maxSlippage
+        );
+
+        if (!hasEnough) {
+          console.log(`[LiveConvergenceStrategy] CLOB流动性不足: Outcome ${outcomeIndex}, 需要 ${shares} shares`);
+          return false;
+        }
+      }
 
       return true;
     } catch (error) {
@@ -263,7 +278,9 @@ export class LiveConvergenceStrategy {
    */
   private passesBasicMarketDepthCheck(snapshot: BacktestMarketSnapshot): boolean {
     // 24 小时交易量 >= 1,000（尾盘策略可以放宽要求）
-    if (!snapshot.volume24h || snapshot.volume24h < 1000) {
+    console.log(`snapshot.volume24hr = ${snapshot.volume24hr}`)
+    console.log(`snapshot.liquidity = ${snapshot.liquidity}`)
+    if (!snapshot.volume24hr || snapshot.volume24hr < 1000) {
       return false;
     }
 
@@ -278,14 +295,69 @@ export class LiveConvergenceStrategy {
   /**
    * 找到要交易的结果索引
    */
-  private findOutcomeIndex(snapshot: BacktestMarketSnapshot): number {
-    for (let i = 0; i < snapshot.outcomePrices.length; i++) {
-      const price = snapshot.outcomePrices[i];
+  private findOutcomeIndex(snapshot: any): number {
+    // 核心修复：适配 ParsedMarket 的 probabilities (Map)
+    let prices: number[] = [];
+    
+    if (snapshot.probabilities instanceof Map) {
+      // 如果是 Map（实盘 ParsedMarket），按 outcomes 顺序转为数组
+      prices = snapshot.outcomes.map((name: string) => snapshot.probabilities.get(name) || 0);
+    } else {
+      // 兼容旧格式
+      prices = Array.isArray(snapshot.outcomePrices)
+        ? snapshot.outcomePrices
+        : Object.values(snapshot.outcomePrices || {});
+    }
+
+    for (let i = 0; i < prices.length; i++) {
+      const price = parseFloat(prices[i] as any);
+      // 增加调试日志，你会看到 numPrice 的输出了
+      // console.log(`[Convergence] 检查索引 ${i} 价格: ${price}`); 
       if (price >= 0.90 && price <= 0.95) {
         return i;
       }
     }
     return -1;
+  }
+
+  /**
+   * 将不同来源的持仓对象转换为标准格式，解决命名冲突并确保类型安全
+   */
+  private normalizeTrade(trade: any) {
+    if (!trade) {
+      throw new Error("[Strategy] 规格化失败：持仓对象为空");
+    }
+
+    // 1. 提取入场价格（处理 NaN 情况）
+    const entryPrice = parseFloat(trade.entry_price || trade.entryPrice || 0);
+
+    // 2. 规格化日期对象
+    const entryTimeRaw = trade.entry_time || trade.entryTime;
+    const endDateRaw = trade.end_date || trade.endDate;
+
+    return {
+      // 基础 ID 和市场信息
+      id: trade.id,
+      marketId: trade.market_id || trade.marketId, // 内部逻辑建议统一使用一种，这里选 marketId
+      market_id: trade.market_id || trade.marketId, // 兼容现有逻辑中的下划线引用
+
+      // 关键时间字段：确保一定是 Date 对象
+      entryTime: entryTimeRaw ? new Date(entryTimeRaw) : new Date(),
+      entry_time: entryTimeRaw ? new Date(entryTimeRaw) : new Date(),
+      endDate: endDateRaw ? new Date(endDateRaw) : new Date(),
+      end_date: endDateRaw ? new Date(endDateRaw) : new Date(),
+
+      // 关键价格字段
+      entryPrice: entryPrice,
+      entry_price: entryPrice,
+
+      // 选项信息
+      outcomeName: trade.outcome_name || trade.outcomeName,
+      outcome_name: trade.outcome_name || trade.outcomeName,
+
+      // 透传其他可能存在的原始字段（如 strategy, position_size 等）
+      ...trade 
+    };
   }
 
   /**

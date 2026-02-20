@@ -246,7 +246,7 @@ export class ReversalStrategyV3 implements BacktestStrategy {
         if (historicalPrices.length >= 15) {
           const sentiment = calculateMarketSentimentScore(
             historicalPrices,
-            snapshot.volume24h,
+            snapshot.volume24hr,
             this.engine.getHistoricalVolumes?.(snapshot.marketId, snapshot.timestamp, 15)
           );
 
@@ -346,7 +346,7 @@ export class ReversalStrategyV3 implements BacktestStrategy {
     }
 
     // 只检查24小时成交量
-    if (!snapshot.volume24h || snapshot.volume24h < 5000) {
+    if (!snapshot.volume24hr || snapshot.volume24hr < 5000) {
       return false;
     }
 
@@ -423,7 +423,7 @@ export class ConvergenceStrategyV3 implements BacktestStrategy {
         if (historicalPrices.length >= 10) {
           const sentiment = calculateMarketSentimentScore(
             historicalPrices,
-            snapshot.volume24h,
+            snapshot.volume24hr,
             this.engine.getHistoricalVolumes?.(snapshot.marketId, snapshot.timestamp, 10)
           );
 
@@ -526,7 +526,7 @@ export class ConvergenceStrategyV3 implements BacktestStrategy {
     }
 
     // 只检查24小时成交量
-    if (!snapshot.volume24h || snapshot.volume24h < 5000) {
+    if (!snapshot.volume24hr || snapshot.volume24hr < 5000) {
       return false;
     }
 

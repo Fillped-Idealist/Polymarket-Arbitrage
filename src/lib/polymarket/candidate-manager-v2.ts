@@ -1,13 +1,13 @@
 /**
- * 候选仓管理器（V2）
- * 参考 main_3.py 实现，支持线程安全和流动性检查
+ * 候选仓管理器（CandidateManager V2）
+ * 完整修复版：支持从 Engine 接收 ParsedMarket 数组并修复类型报错
  */
 
-import { ParsedMarket } from './gamma-api-v2';
+import { ParsedMarket, gammaApiClient } from './gamma-api-v2';
 import { clobApiClient } from './clob-api-v2';
 
 /**
- * 候选仓数据
+ * 候选仓数据模型
  */
 export interface Candidate {
   market: ParsedMarket;
@@ -20,19 +20,18 @@ export interface Candidate {
 }
 
 /**
- * 候选仓管理器配置
+ * 筛选器配置
  */
 export interface CandidateManagerConfig {
-  max_candidates?: number;  // 设为 undefined 表示无限制
+  max_candidates?: number;
   expire_minutes?: number;
   min_liquidity?: number;
   min_volume?: number;
   max_spread?: number;
+  min_price?: number;
+  max_price?: number;
 }
 
-/**
- * 候选仓管理器
- */
 export class CandidateManager {
   private config: Required<CandidateManagerConfig>;
   private candidates: Map<string, Candidate> = new Map();
@@ -40,253 +39,195 @@ export class CandidateManager {
 
   constructor(config: CandidateManagerConfig = {}) {
     this.config = {
-      max_candidates: config.max_candidates || undefined,  // 设为 undefined 表示无限制
+      max_candidates: config.max_candidates || 5000,
       expire_minutes: config.expire_minutes || 60,
       min_liquidity: config.min_liquidity || 100,
-      min_volume: config.min_volume || 80000,
+      min_volume: config.min_volume || 10000,    // 建议设为 0 进行测试，通了再调高
       max_spread: config.max_spread || 0.025,
+      min_price: config.min_price || 0.01,
+      max_price: config.max_price || 0.95,
     };
   }
 
   /**
-   * 从 Gamma API 更新候选仓
-   * 参考 main_3.py 的 _update_candidate_pool 实现
+   * 1. 泵入数据并进行初步筛选
+   * 修复点：修改参数类型为 number | ParsedMarket[] 以处理 Engine 的调用
    */
-  async updateFromGamma(hours: number = 480): Promise<void> {
-    console.log('[CandidateManager] 开始从 Gamma API 更新候选仓...');
+  async updateFromGamma(input: number | ParsedMarket[] = 480): Promise<void> {
+    const now = new Date();
+    let allMarkets: ParsedMarket[] = [];
 
-    // 这里暂时跳过，实际应该调用 gammaApiClient.fetchMarkets()
-    // 由于在 Node.js 环境中实现多线程较复杂，暂时使用简化版本
-    this.last_update_time = new Date();
-    console.log('[CandidateManager] 候选仓更新完成');
+    try {
+      if (Array.isArray(input)) {
+        // 如果输入是数组（来自 Engine 的注入）
+        allMarkets = input;
+        console.log(`[CandidateManager] 接收到 Engine 注入的 ${allMarkets.length} 个市场进行筛选...`);
+      } else {
+        // 如果输入是数字（自行抓取）
+        console.log(`[CandidateManager] 正在从 Gamma 获取近 ${input} 小时内的活跃市场...`);
+        allMarkets = await gammaApiClient.fetchMarkets(input);
+      }
+
+      if (!allMarkets || allMarkets.length === 0) {
+        console.warn('[CandidateManager] 未发现有效市场数据。');
+        return;
+      }
+
+      let newCount = 0;
+      let skipVolume = 0;
+      let skipPrice = 0;
+
+      // 核心筛选循环
+      for (const market of allMarkets) {
+        if (!market.active) continue;
+        if (!market.endDate || market.endDate.trim() === "") {
+          continue; // 未定义结束时间，跳过当前市场
+        }
+
+        // 筛选 A: 成交量
+        if (market.volume < this.config.min_volume) {
+          skipVolume++;
+          continue;
+        }
+
+        for (const outcomeName of market.outcomes) {
+          const key = `${market.id}_${outcomeName}`;
+          const currentPrice = market.probabilities.get(outcomeName) || 0;
+
+          // 筛选 B: 价格区间
+          if (currentPrice < this.config.min_price || currentPrice > this.config.max_price) {
+            skipPrice++;
+            continue;
+          }
+
+          const tokenId = market.outcomeIds.get(outcomeName);
+          if (!tokenId) continue;
+
+          // 筛选 C: 计算趋势/策略评分
+          const trend_strength = (market.liquidity / (market.volume + 1)) * (1 - (market.spread || 0));
+
+          this.candidates.set(key, {
+            market,
+            outcome_name: outcomeName,
+            probability: currentPrice,
+            trend_strength,
+            add_time: this.candidates.get(key)?.add_time || now,
+            last_update_time: now,
+            latest_price: currentPrice,
+          });
+          newCount++;
+        }
+      }
+
+      this.last_update_time = now;
+      console.log(`[CandidateManager] 筛选完成: 池总数 ${this.candidates.size} (成交量过滤:${skipVolume}, 价格过滤:${skipPrice})`);
+
+      // 维护池
+      this.removeExpiredCandidates();
+      this.prunePool();
+
+    } catch (error) {
+      console.error('[CandidateManager] 更新异常:', error);
+    }
   }
 
   /**
-   * 验证流动性（使用 CLOB API）
-   * 参考 main_3.py 的 _place_order 实现
+   * 2. 流动性验证（CLOB 深度校验）
    */
   async validateLiquidity(): Promise<void> {
-    console.log('[CandidateManager] 开始验证流动性...');
+    if (this.candidates.size === 0) return;
 
-    const token_ids = Array.from(this.candidates.values())
-      .map(cand => cand.market.outcomeIds.get(cand.outcome_name))
-      .filter((id): id is string => id !== undefined);
-
-    if (token_ids.length === 0) {
-      console.log('[CandidateManager] 没有需要验证的候选仓');
-      return;
-    }
+    const tokenIds = Array.from(this.candidates.values())
+      .map(c => c.market.outcomeIds.get(c.outcome_name))
+      .filter((id): id is string => !!id);
 
     try {
-      const order_books = await clobApiClient.fetchOrderBooks(token_ids);
-
-      // 验证每个候选仓的流动性
-      const valid_candidates = new Map<string, Candidate>();
+      const orderBooks = await clobApiClient.fetchOrderBooks(tokenIds);
+      const validCandidates = new Map<string, Candidate>();
 
       for (const [key, cand] of this.candidates.entries()) {
-        const token_id = cand.market.outcomeIds.get(cand.outcome_name);
-        if (!token_id) {
-          continue;
-        }
+        const tokenId = cand.market.outcomeIds.get(cand.outcome_name);
+        if (!tokenId) continue;
 
-        const order_book = order_books.get(token_id);
-        if (!order_book) {
-          console.warn(`[CandidateManager] 订单簿查询失败: ${key}`);
-          continue;
-        }
+        const book = orderBooks.get(tokenId);
 
-        // 验证市场
-        if (!clobApiClient.validateMarket(order_book, this.config.min_liquidity, this.config.max_spread)) {
-          console.log(`[CandidateManager] 移除不合格候选仓: ${key}`);
-          continue;
+        if (book && clobApiClient.validateMarket(book, this.config.min_liquidity, this.config.max_spread)) {
+          validCandidates.set(key, cand);
         }
-
-        valid_candidates.set(key, cand);
       }
 
-      this.candidates = valid_candidates;
-      console.log(`[CandidateManager] 流动性验证完成，有效候选仓: ${this.candidates.size}`);
+      this.candidates = validCandidates;
+      console.log(`[CandidateManager] 深度验证完成，最终合格: ${this.candidates.size}`);
     } catch (error) {
       console.error('[CandidateManager] 流动性验证失败:', error);
     }
   }
 
   /**
-   * 添加候选仓
-   */
-  addCandidate(market: ParsedMarket, outcome_name: string, trend_strength: number): void {
-    const key = `${market.id}_${outcome_name}`;
-    const probability = market.probabilities.get(outcome_name) || 0;
-
-    this.candidates.set(key, {
-      market,
-      outcome_name,
-      probability,
-      trend_strength,
-      add_time: new Date(),
-      last_update_time: new Date(),
-      latest_price: probability,
-    });
-
-    // 去除候选池大小限制（参考 main_3.py）
-    // 如果需要限制数量，可以在配置中设置 max_candidates
-    if (this.config.max_candidates !== undefined) {
-      // 限制候选池大小
-      if (this.candidates.size > this.config.max_candidates) {
-        // 按添加时间排序，移除最早的
-        const sorted = Array.from(this.candidates.entries())
-          .sort((a, b) => a[1].add_time.getTime() - b[1].add_time.getTime());
-
-        // 移除多余的
-        for (let i = 0; i < sorted.length - this.config.max_candidates; i++) {
-          this.candidates.delete(sorted[i][0]);
-        }
-      }
-    }
-
-    console.log(`[CandidateManager] 添加候选仓: ${key}，总数: ${this.candidates.size}`);
-  }
-
-  /**
-   * 移除候选仓
-   */
-  removeCandidate(market_id: string, outcome_name: string): void {
-    const key = `${market_id}_${outcome_name}`;
-    const deleted = this.candidates.delete(key);
-    if (deleted) {
-      console.log(`[CandidateManager] 移除候选仓: ${key}`);
-    }
-  }
-
-  /**
-   * 移除过期候选仓
+   * 3. 维护：清理过期
    */
   removeExpiredCandidates(): void {
     const now = new Date();
-    const expire_time = this.config.expire_minutes * 60 * 1000;
-
-    let removed = 0;
+    const expireMs = this.config.expire_minutes * 60 * 1000;
     for (const [key, cand] of this.candidates.entries()) {
-      if (now.getTime() - cand.last_update_time.getTime() > expire_time) {
-        this.candidates.delete(key);
-        removed++;
-      }
-    }
-
-    if (removed > 0) {
-      console.log(`[CandidateManager] 移除过期候选仓: ${removed} 个`);
+      const isEnded = new Date(cand.market.endDate) < now;
+      const isStale = (now.getTime() - cand.last_update_time.getTime()) > expireMs;
+      if (isEnded || isStale) this.candidates.delete(key);
     }
   }
 
   /**
-   * 更新候选仓价格
+   * 4. 维护：大小限制
    */
-  updatePrices(market_prices: Map<string, Map<string, number>>): void {
-    for (const [key, cand] of this.candidates.entries()) {
-      const outcome_prices = market_prices.get(cand.market.id);
-      if (!outcome_prices) {
-        continue;
-      }
-
-      const new_price = outcome_prices.get(cand.outcome_name);
-      if (new_price !== undefined) {
-        cand.latest_price = new_price;
-        cand.last_update_time = new Date();
-      }
+  private prunePool(): void {
+    if (this.candidates.size > this.config.max_candidates) {
+      const sorted = Array.from(this.candidates.entries())
+        .sort((a, b) => b[1].trend_strength - a[1].trend_strength);
+      this.candidates = new Map(sorted.slice(0, this.config.max_candidates));
     }
   }
 
-  /**
-   * 获取所有候选仓
-   */
+  // --- API ---
+
+  getValidCandidates(tradedMarketIds: Set<string> = new Set()): Candidate[] {
+    return Array.from(this.candidates.values()).filter(cand => {
+      return !tradedMarketIds.has(cand.market.id) && cand.market.active;
+    });
+  }
+
   getAllCandidates(): Candidate[] {
     return Array.from(this.candidates.values());
   }
 
-  /**
-   * 获取有效候选仓
-   */
-  getValidCandidates(traded_market_ids: Set<string> = new Set()): Candidate[] {
-    const now = new Date();
-    const expire_time = this.config.expire_minutes * 60 * 1000;
-
-    return Array.from(this.candidates.values()).filter(cand => {
-      // 检查是否已交易
-      if (traded_market_ids.has(cand.market.id)) {
-        return false;
-      }
-
-      // 检查是否过期
-      if (now.getTime() - cand.last_update_time.getTime() > expire_time) {
-        return false;
-      }
-
-      // 检查市场是否活跃
-      if (!cand.market.active) {
-        return false;
-      }
-
-      // 检查价格范围
-      const probability = cand.market.probabilities.get(cand.outcome_name) || 0;
-      if (probability < 0.01 || probability > 0.99) {
-        return false;
-      }
-
-      return true;
-    });
-  }
-
-  /**
-   * 按价格区间筛选候选仓
-   */
-  getCandidatesByPriceRange(min_price: number, max_price: number): Candidate[] {
-    return this.getValidCandidates().filter(cand => {
-      const price = cand.market.probabilities.get(cand.outcome_name) || 0;
-      return price >= min_price && price <= max_price;
-    });
-  }
-
-  /**
-   * 获取候选仓
-   */
-  getCandidate(market_id: string, outcome_name?: string): Candidate | undefined {
-    if (outcome_name) {
-      return this.candidates.get(`${market_id}_${outcome_name}`);
-    }
-
-    // 如果没有指定 outcome_name，返回第一个匹配的
+  updatePrices(marketPrices: Map<string, Map<string, number>>): void {
     for (const [key, cand] of this.candidates.entries()) {
-      if (key.startsWith(market_id + '_')) {
-        return cand;
+      const outcomePrices = marketPrices.get(cand.market.id);
+      if (outcomePrices) {
+        const newPrice = outcomePrices.get(cand.outcome_name);
+        if (newPrice !== undefined) {
+          cand.latest_price = newPrice;
+          cand.last_update_time = new Date();
+        }
       }
     }
-
-    return undefined;
   }
 
-  /**
-   * 获取统计信息
-   */
   getStatistics() {
     return {
       totalCandidates: this.candidates.size,
-      validCandidates: this.getValidCandidates().length,
-      lastUpdateTime: this.last_update_time,
       config: this.config,
     };
   }
 
-  /**
-   * 清空候选仓
-   */
   clear(): void {
     this.candidates.clear();
     this.last_update_time = null;
-    console.log('[CandidateManager] 候选仓已清空');
   }
 }
 
-// 导出单例（无候选仓数量限制）
+// 导出单例，测试阶段 min_volume 设为 0
 export const candidateManager = new CandidateManager({
-  max_candidates: undefined,  // 无限制
+  max_candidates: 5000,
+  min_volume: 10000,
+  min_liquidity: 100
 });

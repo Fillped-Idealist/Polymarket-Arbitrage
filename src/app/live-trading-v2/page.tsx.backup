@@ -20,7 +20,6 @@ import {
   TrendingDown,
   DollarSign,
   Clock,
-  Shield,
   AlertCircle,
   CheckCircle2,
   Loader2,
@@ -77,13 +76,12 @@ interface Statistics {
   config: any;
 }
 
-
 // 侧边栏菜单项
 const sidebarItems = [
-  { id: 'overview', label: 'Overview', icon: Activity, path: '/' },
+  { id: 'overview', label: 'Dashboard', icon: Activity, path: '/' },
   { id: 'live-trading', label: 'Live Trading', icon: Target, path: '/live-trading-v2' },
   { id: 'backtest', label: 'Backtest', icon: TrendingUp, path: '/backtest' },
-  { id: 'dashboard', label: 'Dashboard', icon: Zap, path: '/dashboard' },
+  { id: 'settings', label: 'Settings', icon: Zap, path: '/dashboard' },
 ];
 
 // 动画配置
@@ -274,8 +272,8 @@ export default function LiveTradingV2Page() {
     return status.positions.totalPnl + status.positions.floatingPnl;
   };
 
-  let totalPnl = calculateTotalPnl();
-  let totalPnlPercent = status
+  const totalPnl = calculateTotalPnl();
+  const totalPnlPercent = status
     ? ((totalPnl / (initialCapital || 10000)) * 100)
     : 0;
 
@@ -301,27 +299,14 @@ export default function LiveTradingV2Page() {
         return strategy;
     }
   };
-  
-  const getStrategyColor = (strategy: string) => {
-    switch (strategy) {
-      case 'convergence':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
-      case 'arbitrage':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'reversal':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-    }
-  };
 
-  totalPnl = calculateTotalPnl();
-  totalPnlPercent = status
+  const totalPnl = calculateTotalPnl();
+  const totalPnlPercent = status
     ? ((totalPnl / (initialCapital || 10000)) * 100)
     : 0;
 
   return (
-    <div className="min-h-screen bg-[#0a0f1a] text-slate-100">
+    <div className="min-h-screen bg-[#0F172A] text-slate-100">
       {/* 侧边栏 */}
       <motion.aside
         initial={{ x: -100, opacity: 0 }}
@@ -492,7 +477,7 @@ export default function LiveTradingV2Page() {
           animate="visible"
           className="p-4 lg:p-8 pt-20 lg:pt-8"
         >
-            <div className="ml-0 flex items-center gap-4">
+              <div className="ml-4 flex items-center gap-2">
                 {status?.isInitializing ? (
                   <Badge className="bg-yellow-500/20 text-yellow-500 text-[10px] px-2 py-0.5">
                     <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -509,46 +494,48 @@ export default function LiveTradingV2Page() {
                   </Badge>
                 )}
                 {lastUpdateTime && (
-                  <span className="text-[10px] text-slate-500 w-150">
+                  <span className="text-[10px] text-slate-500">
                     Last update: {lastUpdateTime.toLocaleTimeString()}
                   </span>
                 )}
-                
-                <Button variant="outline" size="sm" onClick={fetchStatus} disabled={loading} className="h-7 px-2 text-[10px] ml-170 bg-[#1E293B]">
-                  {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                </Button>
-                {!status?.isRunning ? (
-                  <Button size="sm" onClick={startTrading} disabled={starting || status?.isRunning} className="bg-[#06B6D4] hover:bg-[#0891B2] text-white h-7 px-3 text-[10px]">
-                    {starting ? (
-                      <>
-                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                        Starting...
-                      </>
-                    ) : (
-                      <>
-                        <Play className="mr-2 h-3 w-3" />
-                        Start
-                      </>
-                    )}
-                  </Button>
-                ) : (
-                  <Button variant="destructive" size="sm" onClick={stopTrading} disabled={stopping} className="h-7 px-3 text-[10px]">
-                    {stopping ? (
-                      <>
-                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                        Stopping...
-                      </>
-                    ) : (
-                      <>
-                        <Square className="mr-2 h-3 w-3" />
-                        Stop
-                      </>
-                    )}
-                  </Button>
-                )}
               </div>
-              
-        </motion.div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={fetchStatus} disabled={loading} className="h-7 px-2 text-[10px]">
+                {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              </Button>
+              {!status?.isRunning ? (
+                <Button size="sm" onClick={startTrading} disabled={starting || status?.isRunning} className="bg-[#06B6D4] hover:bg-[#0891B2] text-white h-7 px-3 text-[10px]">
+                  {starting ? (
+                    <>
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      Starting...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-3 w-3" />
+                      Start
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button variant="destructive" size="sm" onClick={stopTrading} disabled={stopping} className="h-7 px-3 text-[10px]">
+                  {stopping ? (
+                    <>
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      Stopping...
+                    </>
+                  ) : (
+                    <>
+                      <Square className="mr-2 h-3 w-3" />
+                      Stop
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Page Content */}
         <div className="p-4">
@@ -580,14 +567,14 @@ export default function LiveTradingV2Page() {
           {!status?.isRunning && (
             <Card className="mb-4 bg-[#1E293B]/40 backdrop-blur-xl border-slate-800/50">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center gap-2 text-slate-400">
-                  <Target className="h-4 w-4 text-slate-200" />
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Target className="h-4 w-4" />
                   Trading Configuration
                 </CardTitle>
                 <CardDescription className="text-[10px] text-slate-400">Configure trading mode and initial capital</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-slate-400">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-medium text-slate-300">Test Mode</label>
                     <Select value={testMode} onValueChange={setTestMode}>
@@ -625,8 +612,8 @@ export default function LiveTradingV2Page() {
           {status && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-4">
               <Card className="bg-[#1E293B]/40 backdrop-blur-xl border-slate-800/50">
-                <CardHeader className="pb-1">
-                  <CardDescription className="text-[12px] text-slate-400">Status</CardDescription>
+                <CardHeader className="pb-2">
+                  <CardDescription className="text-[10px] text-slate-400">Status</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-2">
@@ -645,8 +632,8 @@ export default function LiveTradingV2Page() {
               </Card>
 
               <Card className="bg-[#1E293B]/40 backdrop-blur-xl border-slate-800/50">
-                <CardHeader className="pb-1">
-                  <CardDescription className="text-[12px] text-slate-400">Positions</CardDescription>
+                <CardHeader className="pb-2">
+                  <CardDescription className="text-[10px] text-slate-400">Positions</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-2">
@@ -662,8 +649,8 @@ export default function LiveTradingV2Page() {
               </Card>
 
               <Card className="bg-[#1E293B]/40 backdrop-blur-xl border-slate-800/50">
-                <CardHeader className="pb-1">
-                  <CardDescription className="text-[12px] text-slate-400">Total P&L</CardDescription>
+                <CardHeader className="pb-2">
+                  <CardDescription className="text-[10px] text-slate-400">Total P&L</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-2">
@@ -683,14 +670,14 @@ export default function LiveTradingV2Page() {
               </Card>
 
               <Card className="bg-[#1E293B]/40 backdrop-blur-xl border-slate-800/50">
-                <CardHeader className="pb-1">
-                  <CardDescription className="text-[12px] text-slate-400">Candidates</CardDescription>
+                <CardHeader className="pb-2">
+                  <CardDescription className="text-[10px] text-slate-400">Candidates</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-2">
                     <Clock className="h-5 w-5 text-[#8B5CF6]" />
                     <span className="text-sm font-bold text-white">
-                      {status.candidates.totalCandidates}
+                      {status.candidates.validCandidates}
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1">
@@ -705,10 +692,10 @@ export default function LiveTradingV2Page() {
           {status && (
             <Tabs defaultValue="open" className="space-y-4">
               <TabsList className="bg-[#1E293B]/40 border border-slate-800/50">
-                <TabsTrigger value="open" className="text-[10px] text-slate-400 data-[state=active]:bg-[#06B6D4]/20 data-[state=active]:text-[#06B6D4]">
+                <TabsTrigger value="open" className="text-[10px] data-[state=active]:bg-[#06B6D4]/20 data-[state=active]:text-[#06B6D4]">
                   Open Positions ({status.positions.openCount})
                 </TabsTrigger>
-                <TabsTrigger value="closed" className="text-[10px] text-slate-400 data-[state=active]:bg-[#06B6D4]/20 data-[state=active]:text-[#06B6D4]">
+                <TabsTrigger value="closed" className="text-[10px] data-[state=active]:bg-[#06B6D4]/20 data-[state=active]:text-[#06B6D4]">
                   Closed ({status.positions.closedCount})
                 </TabsTrigger>
               </TabsList>
@@ -716,7 +703,7 @@ export default function LiveTradingV2Page() {
               <TabsContent value="open">
                 <Card className="bg-[#1E293B]/40 backdrop-blur-xl border-slate-800/50">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm flex items-center gap-2 text-slate-300">
+                    <CardTitle className="text-sm flex items-center gap-2">
                       <Zap className="h-4 w-4" />
                       Open Positions
                     </CardTitle>
@@ -735,14 +722,14 @@ export default function LiveTradingV2Page() {
                       <Table>
                         <TableHeader>
                           <TableRow className="border-slate-800/50">
-                            <TableHead className="text-[12px] text-slate-200">Market</TableHead>
-                            <TableHead className="text-[12px] text-slate-200">Strategy</TableHead>
-                            <TableHead className="text-[12px] text-right text-slate-200">Entry</TableHead>
-                            <TableHead className="text-[12px] text-right text-slate-200">Current</TableHead>
-                            <TableHead className="text-[12px] text-right text-slate-200">Size</TableHead>
-                            <TableHead className="text-[12px] text-right text-slate-200">P&L</TableHead>
-                            <TableHead className="text-[12px] text-right text-slate-200">P&L %</TableHead>
-                            <TableHead className="text-[12px] text-slate-200">Entry Time</TableHead>
+                            <TableHead className="text-[10px]">Market</TableHead>
+                            <TableHead className="text-[10px]">Strategy</TableHead>
+                            <TableHead className="text-[10px] text-right">Entry</TableHead>
+                            <TableHead className="text-[10px] text-right">Current</TableHead>
+                            <TableHead className="text-[10px] text-right">Size</TableHead>
+                            <TableHead className="text-[10px] text-right">P&L</TableHead>
+                            <TableHead className="text-[10px] text-right">P&L %</TableHead>
+                            <TableHead className="text-[10px]">Entry Time</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -788,8 +775,8 @@ export default function LiveTradingV2Page() {
               <TabsContent value="closed">
                 <Card className="bg-[#1E293B]/40 backdrop-blur-xl border-slate-800/50">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm flex items-center gap-2 text-slate-300">
-                      <Shield className="h-4 w-4 text-slate-300" />
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
                       Closed Positions
                     </CardTitle>
                     {status.positions.closedCount === 0 && (
@@ -806,14 +793,14 @@ export default function LiveTradingV2Page() {
                       <Table>
                         <TableHeader>
                           <TableRow className="border-slate-800/50">
-                            <TableHead className="text-[12px] text-slate-200">Market</TableHead>
-                            <TableHead className="text-[12px] text-slate-200">Strategy</TableHead>
-                            <TableHead className="text-[12px] text-right text-slate-200">Entry</TableHead>
-                            <TableHead className="text-[12px] text-right text-slate-200">Exit</TableHead>
-                            <TableHead className="text-[12px] text-right text-slate-200">P&L</TableHead>
-                            <TableHead className="text-[12px] text-right text-slate-200">P&L %</TableHead>
-                            <TableHead className="text-[12px] text-slate-200">Reason</TableHead>
-                            <TableHead className="text-[12px] text-slate-200">Exit Time</TableHead>
+                            <TableHead className="text-[10px]">Market</TableHead>
+                            <TableHead className="text-[10px]">Strategy</TableHead>
+                            <TableHead className="text-[10px] text-right">Entry</TableHead>
+                            <TableHead className="text-[10px] text-right">Exit</TableHead>
+                            <TableHead className="text-[10px] text-right">P&L</TableHead>
+                            <TableHead className="text-[10px] text-right">P&L %</TableHead>
+                            <TableHead className="text-[10px]">Reason</TableHead>
+                            <TableHead className="text-[10px]">Exit Time</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -864,8 +851,8 @@ export default function LiveTradingV2Page() {
           {status && (
             <Card className="mt-4 bg-[#1E293B]/40 backdrop-blur-xl border-slate-800/50">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center gap-2 text-slate-300">
-                  <Activity className="h-4 w-4 text-slate-300" />
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
                   System Info
                 </CardTitle>
                 <CardDescription className="text-[10px] text-slate-400">Real-time system status and statistics</CardDescription>
@@ -914,8 +901,8 @@ export default function LiveTradingV2Page() {
           {/* Strategy Descriptions */}
           <Card className="mt-4 bg-[#1E293B]/40 backdrop-blur-xl border-slate-800/50">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2 text-slate-300">
-                <Target className="h-4 w-4 text-slate-300" />
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Target className="h-4 w-4" />
                 Strategy Descriptions
               </CardTitle>
               <CardDescription className="text-[10px] text-slate-400">Current trading strategies</CardDescription>

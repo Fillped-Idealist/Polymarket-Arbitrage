@@ -236,7 +236,7 @@ export class ReversalStrategyV9 implements BacktestStrategy {
    */
   private passesBasicMarketDepthCheck(snapshot: BacktestMarketSnapshot): boolean {
     // ✅ 恢复严格的交易量检查
-    if (!snapshot.volume24h || snapshot.volume24h < 2000) {
+    if (!snapshot.volume24hr || snapshot.volume24hr < 2000) {
       return false;
     }
 

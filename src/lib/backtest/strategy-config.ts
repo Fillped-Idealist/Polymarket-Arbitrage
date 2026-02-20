@@ -405,12 +405,12 @@ export function shouldOpenReversalTrade(market: any, config: StrategyConfig = RE
     return false;
   }
   
-  if (!market.volume24h || market.volume24h < entryConditions.liquidity.minVolume24h) {
+  if (!market.volume24hr || market.volume24hr < entryConditions.liquidity.minVolume24h) {
     return false;
   }
   
-  if (market.liquidity && market.volume24h) {
-    const ratio = market.liquidity / market.volume24h;
+  if (market.liquidity && market.volume24hr) {
+    const ratio = market.liquidity / market.volume24hr;
     if (ratio < entryConditions.liquidity.minLiquidityToVolumeRatio) {
       return false;
     }
@@ -442,7 +442,7 @@ export function shouldOpenConvergenceTrade(market: any, config: ConvergenceStrat
     return false;
   }
   
-  if (!market.volume24h || market.volume24h < entryConditions.liquidity.minVolume24h) {
+  if (!market.volume24hr || market.volume24hr < entryConditions.liquidity.minVolume24h) {
     return false;
   }
   

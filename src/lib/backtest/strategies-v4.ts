@@ -588,13 +588,13 @@ export class ReversalStrategyV4 implements BacktestStrategy {
     }
 
     // V8.4: 24小时成交量检查
-    if (!snapshot.volume24h || snapshot.volume24h < 5000) {
+    if (!snapshot.volume24hr || snapshot.volume24hr < 5000) {
       return false;
     }
 
     // V8.4: 流动性与成交量的比率检查（避免流动性过低但成交量高的情况）
-    if (snapshot.liquidity && snapshot.volume24h) {
-      const liquidityToVolumeRatio = snapshot.liquidity / snapshot.volume24h;
+    if (snapshot.liquidity && snapshot.volume24hr) {
+      const liquidityToVolumeRatio = snapshot.liquidity / snapshot.volume24hr;
       if (liquidityToVolumeRatio < 0.01) {  // 流动性占成交量比例过低（< 1%）
         return false;
       }
@@ -835,7 +835,7 @@ export class ConvergenceStrategyV4 implements BacktestStrategy {
       return false;
     }
 
-    if (!snapshot.volume24h || snapshot.volume24h < 5000) {
+    if (!snapshot.volume24hr || snapshot.volume24hr < 5000) {
       return false;
     }
 

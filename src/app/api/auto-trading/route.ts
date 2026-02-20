@@ -52,8 +52,6 @@ export async function GET() {
       isRunning: tradingEngineV2 !== null,
       isInitializing: isInitializingV2,
       positions: {
-        openCount: positionManager.getOpenPositions().length,
-        closedCount: positionManager.getClosedPositions().length,
         openPositions: positionManager.getOpenPositions().map(p => ({
           id: p.id,
           marketId: p.market_id,

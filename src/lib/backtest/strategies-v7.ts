@@ -827,7 +827,7 @@ export class ReversalStrategyV8 implements BacktestStrategy {
 
   /**
    * V8.8: 市场深度检查（大幅降低）
-   * 修复：处理 liquidity=0 的情况，使用 volume24h 作为替代指标
+   * 修复：处理 liquidity=0 的情况，使用 volume24hr 作为替代指标
    */
   private passesMarketDepthCheck(
     snapshot: BacktestMarketSnapshot,
@@ -835,11 +835,11 @@ export class ReversalStrategyV8 implements BacktestStrategy {
     minLiquidity: number
   ): boolean {
     // 24小时成交量
-    if (!snapshot.volume24h || snapshot.volume24h < minVolume24h) {
+    if (!snapshot.volume24hr || snapshot.volume24hr < minVolume24h) {
       return false;
     }
 
-    // 流动性检查（V8.8 修复：如果 liquidity=0，跳过此检查，只依赖 volume24h）
+    // 流动性检查（V8.8 修复：如果 liquidity=0，跳过此检查，只依赖 volume24hr）
     if (snapshot.liquidity && snapshot.liquidity < minLiquidity) {
       return false;
     }
@@ -854,12 +854,12 @@ export class ReversalStrategyV8 implements BacktestStrategy {
     }
 
     // V8.8: 大幅降低24小时成交量检查
-    if (!snapshot.volume24h || snapshot.volume24h < 2000) {  // 从 10000 降低到 2000
+    if (!snapshot.volume24hr || snapshot.volume24hr < 2000) {  // 从 10000 降低到 2000
       return false;
     }
 
-    if (snapshot.liquidity && snapshot.volume24h) {
-      const ratio = snapshot.liquidity / snapshot.volume24h;
+    if (snapshot.liquidity && snapshot.volume24hr) {
+      const ratio = snapshot.liquidity / snapshot.volume24hr;
       if (ratio < 0.01) {  // 从 0.015 降低到 0.01
         return false;
       }

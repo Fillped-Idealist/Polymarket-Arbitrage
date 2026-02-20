@@ -16,7 +16,7 @@ export interface GammaMarket {
   image: string;
   endDate: string;  // ISO 8601 格式
   liquidity: number;
-  volume24h: number;
+  volume24hr: number;
   tags: string[];
   outcomes: GammaOutcome[];
 }
@@ -112,7 +112,7 @@ export class GammaApiClient {
    * 1. 已过期的市场（endDate < 当前时间）
    * 2. 长时间未更新的市场（24 小时内没有交易量）
    * 3. 低流动性市场（liquidity < 500）
-   * 4. 低交易量市场（volume24h < 2000）
+   * 4. 低交易量市场（volume24hr < 2000）
    *
    * @param markets 市场列表
    * @returns 有效的市场列表
@@ -144,8 +144,8 @@ export class GammaApiClient {
         return false;
       }
 
-      // 5. 检查交易量（volume24h >= 2000）
-      if (!market.volume24h || market.volume24h < 2000) {
+      // 5. 检查交易量（volume24hr >= 2000）
+      if (!market.volume24hr || market.volume24hr < 2000) {
         return false;
       }
 
@@ -192,8 +192,9 @@ export class GammaApiClient {
       timestamp,
       endDate: new Date(market.endDate),
       outcomePrices: market.outcomes.map(o => o.price),
-      volume24h: market.volume24h || 0,
+      volume24hr: market.volume24hr || 0,
       liquidity: market.liquidity || 0,
+      isBinary: market.outcomes.length === 2,
     };
   }
 }

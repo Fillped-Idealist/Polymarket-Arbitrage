@@ -102,7 +102,7 @@ export function getEnvConfig(): Partial<EnvConfig> {
       ? parseInt(process.env.UPDATE_INTERVAL_MINUTES)
       : undefined,
     MIN_LIQUIDITY: process.env.MIN_LIQUIDITY
-      ? parseFloat(process.env.MIN_LIQUIDUTY)
+      ? parseFloat(process.env.MIN_LIQUIDITY)
       : undefined,
     MAX_SLIPPAGE: process.env.MAX_SLIPPAGE
       ? parseFloat(process.env.MAX_SLIPPAGE)

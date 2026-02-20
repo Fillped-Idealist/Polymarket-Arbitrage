@@ -389,10 +389,10 @@ export default function LiveTradingPage() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-white">
-                              ${(position.entryPrice * 100).toFixed(2)}%
+                              ${(position.entryPrice * 100).toFixed(3)}%
                             </TableCell>
                             <TableCell className="text-white">
-                              ${(position.currentPrice * 100).toFixed(2)}%
+                              ${(position.currentPrice * 100).toFixed(3)}%
                             </TableCell>
                             <TableCell className="text-white">
                               {position.positionSize}
